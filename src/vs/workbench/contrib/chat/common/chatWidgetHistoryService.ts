@@ -63,15 +63,16 @@ export class ChatWidgetHistoryService implements IChatWidgetHistoryService {
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@ILogService private readonly logService: ILogService
 	) {
-		// Load state from storage. Since we can't specify target when loading,
-		// we load from the default location. However, we immediately save to the
-		// configured target to ensure data is in the right place.
+		// Load state from storage. The storage service will return data from whichever
+		// target has it (MACHINE or USER). We cannot easily load from both targets and merge.
+		// Note: This is a known limitation. When users change the sync setting, they may
+		// temporarily see data from the previous target until new data is saved.
 		const loadedStateRaw = this.storageService.get(ChatWidgetHistoryService.STORAGE_KEY, StorageScope.WORKSPACE, '{}');
 		let loadedState: IChatHistory;
 		try {
 			loadedState = JSON.parse(loadedStateRaw) as IChatHistory;
 		} catch (error) {
-			this.logService.warn('ChatWidgetHistoryService: Failed to parse stored history', error);
+			this.logService.warn(`ChatWidgetHistoryService: Failed to parse stored history from key '${ChatWidgetHistoryService.STORAGE_KEY}'`, error);
 			loadedState = { history: {} };
 		}
 
@@ -87,10 +88,12 @@ export class ChatWidgetHistoryService implements IChatWidgetHistoryService {
 
 		this.viewState = loadedState;
 		
-		// Save to the configured target to ensure data is stored in the right location.
-		// Note: This means on first load after changing sync setting, data will be copied
-		// to the new target. The old data remains in the old target but won't be used.
-		// This is acceptable as Settings Sync will handle propagating USER-targeted data.
+		// Migration strategy: Save to the configured target to ensure data is in the right location.
+		// - On upgrade from old version: MACHINE data → USER target (default) → syncs across devices
+		// - Sync enabled → disabled: USER data remains synced, new saves go to MACHINE
+		// - Sync disabled → enabled: MACHINE data → USER target → begins syncing
+		// Note: Old target data remains but isn't actively used. Only save if we have data to avoid
+		// creating empty storage entries.
 		if (Object.keys(this.viewState.history).length > 0) {
 			this.saveState();
 		}
