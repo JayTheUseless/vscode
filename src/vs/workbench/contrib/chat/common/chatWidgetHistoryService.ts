@@ -72,7 +72,7 @@ export class ChatWidgetHistoryService implements IChatWidgetHistoryService {
 		try {
 			loadedState = JSON.parse(loadedStateRaw) as IChatHistory;
 		} catch (error) {
-			this.logService.warn(`ChatWidgetHistoryService: Failed to parse stored history from key '${ChatWidgetHistoryService.STORAGE_KEY}'`, error);
+			this.logService.warn('ChatWidgetHistoryService: Failed to parse stored history', error);
 			loadedState = { history: {} };
 		}
 
@@ -87,7 +87,7 @@ export class ChatWidgetHistoryService implements IChatWidgetHistoryService {
 		}
 
 		this.viewState = loadedState;
-		
+
 		// Migration strategy: Save to the configured target to ensure data is in the right location.
 		// - On upgrade from old version: MACHINE data → USER target (default) → syncs across devices
 		// - Sync enabled → disabled: USER data remains synced, new saves go to MACHINE
