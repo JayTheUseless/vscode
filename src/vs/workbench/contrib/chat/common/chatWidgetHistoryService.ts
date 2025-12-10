@@ -63,8 +63,9 @@ export class ChatWidgetHistoryService implements IChatWidgetHistoryService {
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@ILogService private readonly logService: ILogService
 	) {
-		// Load state from storage. Try to load from both possible storage locations
-		// to handle migration when users change their sync preference.
+		// Load state from storage. Since we can't specify target when loading,
+		// we load from the default location. However, we immediately save to the
+		// configured target to ensure data is in the right place.
 		const loadedStateRaw = this.storageService.get(ChatWidgetHistoryService.STORAGE_KEY, StorageScope.WORKSPACE, '{}');
 		let loadedState: IChatHistory;
 		try {
@@ -86,9 +87,13 @@ export class ChatWidgetHistoryService implements IChatWidgetHistoryService {
 
 		this.viewState = loadedState;
 		
-		// Save to the correct target based on current configuration to ensure migration
-		// This ensures that on first load after changing the sync setting, data is copied to the new target
-		this.saveState();
+		// Save to the configured target to ensure data is stored in the right location.
+		// Note: This means on first load after changing sync setting, data will be copied
+		// to the new target. The old data remains in the old target but won't be used.
+		// This is acceptable as Settings Sync will handle propagating USER-targeted data.
+		if (Object.keys(this.viewState.history).length > 0) {
+			this.saveState();
+		}
 	}
 
 	private getStorageTarget(): StorageTarget {
