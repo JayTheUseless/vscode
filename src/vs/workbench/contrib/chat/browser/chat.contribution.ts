@@ -211,6 +211,12 @@ configurationRegistry.registerConfiguration({
 			description: nls.localize('chat.notifyWindowOnConfirmation', "Controls whether the Copilot window should notify the user when a confirmation is needed."),
 			default: true,
 		},
+		'chat.syncHistory.enabled': {
+			type: 'boolean',
+			scope: ConfigurationScope.APPLICATION,
+			description: nls.localize('chat.syncHistory.enabled', "Controls whether chat history is synced across devices. When enabled, your chat conversations and input history will be available on all your devices signed in with the same account."),
+			default: true,
+		},
 		'chat.tools.autoApprove': {
 			default: false,
 			// Description is added in for policy parser. See https://github.com/microsoft/vscode/issues/254526
