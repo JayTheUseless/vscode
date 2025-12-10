@@ -7,6 +7,7 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { ModifiedFileEntryState } from './chatEditingService.js';
 import { CHAT_PROVIDER_ID } from './chatParticipantContribTypes.js';
@@ -59,15 +60,18 @@ export class ChatWidgetHistoryService implements IChatWidgetHistoryService {
 
 	constructor(
 		@IStorageService private readonly storageService: IStorageService,
-		@IConfigurationService private readonly configurationService: IConfigurationService
+		@IConfigurationService private readonly configurationService: IConfigurationService,
+		@ILogService private readonly logService: ILogService
 	) {
-		// Load state - the storage service will search across all storage targets
-		// This allows migration when users change their sync preference
+		// Load state from storage. The storage service returns data from the appropriate
+		// storage target (MACHINE or USER) based on what was previously stored.
+		// When users change the sync setting, new saves will use the new target.
 		const loadedStateRaw = this.storageService.get(ChatWidgetHistoryService.STORAGE_KEY, StorageScope.WORKSPACE, '{}');
 		let loadedState: IChatHistory;
 		try {
 			loadedState = JSON.parse(loadedStateRaw) as IChatHistory;
-		} catch {
+		} catch (error) {
+			this.logService.warn('ChatWidgetHistoryService: Failed to parse stored history', error);
 			loadedState = { history: {} };
 		}
 
