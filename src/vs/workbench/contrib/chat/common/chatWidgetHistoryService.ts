@@ -61,7 +61,8 @@ export class ChatWidgetHistoryService implements IChatWidgetHistoryService {
 		@IStorageService private readonly storageService: IStorageService,
 		@IConfigurationService private readonly configurationService: IConfigurationService
 	) {
-		const storageTarget = this.getStorageTarget();
+		// Load state - the storage service will search across all storage targets
+		// This allows migration when users change their sync preference
 		const loadedStateRaw = this.storageService.get(ChatWidgetHistoryService.STORAGE_KEY, StorageScope.WORKSPACE, '{}');
 		let loadedState: IChatHistory;
 		try {
