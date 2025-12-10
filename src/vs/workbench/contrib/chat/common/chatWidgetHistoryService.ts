@@ -5,13 +5,14 @@
 
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { URI } from '../../../../base/common/uri.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { Memento } from '../../../common/memento.js';
 import { ModifiedFileEntryState } from './chatEditingService.js';
 import { CHAT_PROVIDER_ID } from './chatParticipantContribTypes.js';
 import { IChatRequestVariableEntry } from './chatVariableEntries.js';
-import { ChatAgentLocation, ChatModeKind } from './constants.js';
+import { ChatAgentLocation, ChatConfiguration, ChatModeKind } from './constants.js';
 
 export interface IChatHistoryEntry {
 	text: string;
@@ -58,16 +59,23 @@ export class ChatWidgetHistoryService implements IChatWidgetHistoryService {
 	readonly onDidClearHistory: Event<void> = this._onDidClearHistory.event;
 
 	constructor(
-		@IStorageService storageService: IStorageService
+		@IStorageService private readonly storageService: IStorageService,
+		@IConfigurationService private readonly configurationService: IConfigurationService
 	) {
 		this.memento = new Memento('interactive-session', storageService);
-		const loadedState = this.memento.getMemento(StorageScope.WORKSPACE, StorageTarget.MACHINE) as IChatHistory;
+		const storageTarget = this.getStorageTarget();
+		const loadedState = this.memento.getMemento(StorageScope.WORKSPACE, storageTarget) as IChatHistory;
 		for (const provider in loadedState.history) {
 			// Migration from old format
 			loadedState.history[provider] = loadedState.history[provider].map(entry => typeof entry === 'string' ? { text: entry } : entry);
 		}
 
 		this.viewState = loadedState;
+	}
+
+	private getStorageTarget(): StorageTarget {
+		const syncEnabled = this.configurationService.getValue<boolean>(ChatConfiguration.SyncChatHistory);
+		return syncEnabled ? StorageTarget.USER : StorageTarget.MACHINE;
 	}
 
 	getHistory(location: ChatAgentLocation): IChatHistoryEntry[] {

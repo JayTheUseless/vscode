@@ -143,6 +143,11 @@ export class ChatService extends Disposable implements IChatService {
 		return this.configurationService.getValue(ChatConfiguration.Edits2Enabled);
 	}
 
+	private getStorageTarget(): StorageTarget {
+		const syncEnabled = this.configurationService.getValue<boolean>(ChatConfiguration.SyncChatHistory);
+		return syncEnabled ? StorageTarget.USER : StorageTarget.MACHINE;
+	}
+
 	private get isEmptyWindow(): boolean {
 		const workspace = this.workspaceContextService.getWorkspace();
 		return !workspace.configuration && workspace.folders.length === 0;
@@ -231,7 +236,7 @@ export class ChatService extends Disposable implements IChatService {
 					this.trace('onWillSaveState', `Persisting ${serialized.length} chars`);
 				}
 
-				this.storageService.store(serializedChatKey, serialized, StorageScope.WORKSPACE, StorageTarget.MACHINE);
+				this.storageService.store(serializedChatKey, serialized, StorageScope.WORKSPACE, this.getStorageTarget());
 			}
 
 		}
@@ -286,7 +291,7 @@ export class ChatService extends Disposable implements IChatService {
 		sessionsList.sort((a, b) => (b.creationDate ?? 0) - (a.creationDate ?? 0));
 		sessionsList = sessionsList.slice(0, maxPersistedSessions);
 		const data = JSON.stringify(sessionsList);
-		this.storageService.store(serializedChatKey, data, StorageScope.APPLICATION, StorageTarget.MACHINE);
+		this.storageService.store(serializedChatKey, data, StorageScope.APPLICATION, this.getStorageTarget());
 	}
 
 	notifyUserAction(action: IChatUserActionEvent): void {
@@ -375,7 +380,7 @@ export class ChatService extends Disposable implements IChatService {
 		const transferred = data.find(item => URI.revive(item.toWorkspace).toString() === thisWorkspace && (currentTime - item.timestampInMilliseconds < SESSION_TRANSFER_EXPIRATION_IN_MILLISECONDS));
 		// Keep data that isn't for the current workspace and that hasn't expired yet
 		const filtered = data.filter(item => URI.revive(item.toWorkspace).toString() !== thisWorkspace && (currentTime - item.timestampInMilliseconds < SESSION_TRANSFER_EXPIRATION_IN_MILLISECONDS));
-		this.storageService.store(globalChatKey, JSON.stringify(filtered), StorageScope.PROFILE, StorageTarget.MACHINE);
+		this.storageService.store(globalChatKey, JSON.stringify(filtered), StorageScope.PROFILE, this.getStorageTarget());
 		return transferred;
 	}
 
@@ -1155,7 +1160,7 @@ export class ChatService extends Disposable implements IChatService {
 			mode: transferredSessionData.mode,
 		});
 
-		this.storageService.store(globalChatKey, JSON.stringify(existingRaw), StorageScope.PROFILE, StorageTarget.MACHINE);
+		this.storageService.store(globalChatKey, JSON.stringify(existingRaw), StorageScope.PROFILE, this.getStorageTarget());
 		this.chatTransferService.addWorkspaceToTransferred(toWorkspace);
 		this.trace('transferChatSession', `Transferred session ${model.sessionId} to workspace ${toWorkspace.toString()}`);
 	}
