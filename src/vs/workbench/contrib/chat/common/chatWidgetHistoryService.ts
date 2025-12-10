@@ -8,7 +8,6 @@ import { URI } from '../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
-import { Memento } from '../../../common/memento.js';
 import { ModifiedFileEntryState } from './chatEditingService.js';
 import { CHAT_PROVIDER_ID } from './chatParticipantContribTypes.js';
 import { IChatRequestVariableEntry } from './chatVariableEntries.js';
@@ -52,7 +51,7 @@ export const ChatInputHistoryMaxEntries = 40;
 export class ChatWidgetHistoryService implements IChatWidgetHistoryService {
 	_serviceBrand: undefined;
 
-	private memento: Memento;
+	private static readonly STORAGE_KEY = 'memento/interactive-session';
 	private viewState: IChatHistory;
 
 	private readonly _onDidClearHistory = new Emitter<void>();
@@ -62,9 +61,20 @@ export class ChatWidgetHistoryService implements IChatWidgetHistoryService {
 		@IStorageService private readonly storageService: IStorageService,
 		@IConfigurationService private readonly configurationService: IConfigurationService
 	) {
-		this.memento = new Memento('interactive-session', storageService);
 		const storageTarget = this.getStorageTarget();
-		const loadedState = this.memento.getMemento(StorageScope.WORKSPACE, storageTarget) as IChatHistory;
+		const loadedStateRaw = this.storageService.get(ChatWidgetHistoryService.STORAGE_KEY, StorageScope.WORKSPACE, '{}');
+		let loadedState: IChatHistory;
+		try {
+			loadedState = JSON.parse(loadedStateRaw) as IChatHistory;
+		} catch {
+			loadedState = { history: {} };
+		}
+
+		// Ensure history object exists
+		if (!loadedState.history) {
+			loadedState.history = {};
+		}
+
 		for (const provider in loadedState.history) {
 			// Migration from old format
 			loadedState.history[provider] = loadedState.history[provider].map(entry => typeof entry === 'string' ? { text: entry } : entry);
@@ -76,6 +86,11 @@ export class ChatWidgetHistoryService implements IChatWidgetHistoryService {
 	private getStorageTarget(): StorageTarget {
 		const syncEnabled = this.configurationService.getValue<boolean>(ChatConfiguration.SyncChatHistory);
 		return syncEnabled ? StorageTarget.USER : StorageTarget.MACHINE;
+	}
+
+	private saveState(): void {
+		const storageTarget = this.getStorageTarget();
+		this.storageService.store(ChatWidgetHistoryService.STORAGE_KEY, JSON.stringify(this.viewState), StorageScope.WORKSPACE, storageTarget);
 	}
 
 	getHistory(location: ChatAgentLocation): IChatHistoryEntry[] {
@@ -95,12 +110,12 @@ export class ChatWidgetHistoryService implements IChatWidgetHistoryService {
 
 		const key = this.getKey(location);
 		this.viewState.history[key] = history.slice(-ChatInputHistoryMaxEntries);
-		this.memento.saveMemento();
+		this.saveState();
 	}
 
 	clearHistory(): void {
 		this.viewState.history = {};
-		this.memento.saveMemento();
+		this.saveState();
 		this._onDidClearHistory.fire();
 	}
 }
